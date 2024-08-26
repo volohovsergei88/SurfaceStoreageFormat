@@ -22,7 +22,7 @@ namespace SurfaceStoreageFormat
             long dateTimeBinary = BitConverter.ToInt64(data, offset);
             DateTime timeSur = DateTime.FromBinary(dateTimeBinary);
             offset += 8;
-            // Возвращаем объект Header
+            // Возвращаем объект Header 
             return new Header(ver, author, nameSur, timeSur);
         }
         public static TablePokr ParcePokr(byte[] d, ref int offset)
