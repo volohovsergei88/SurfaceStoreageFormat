@@ -34,6 +34,10 @@ namespace SurfaceStoreageFormat
                 tablePork.Add(ParsePokr(d, ref offset));
 
             byte[] squareCounts = new byte[4];
+            for (int i = 0; i < 4; i++)
+            {
+                squareCounts[i] = d[offset++];
+            }
 
             return new TablePokr(countPokr, tablePork, squareCounts);
         }
@@ -58,50 +62,130 @@ namespace SurfaceStoreageFormat
             return new Pokr(col, name);
         }
         //Парсим отметки 8,9,10 байт
-        public static Piket ParsePiket(byte[] data, ref int offset)
+        public static List<Piket> ParsePikets(byte[] data, ref int offset)
         {
-            //Читаем координаты X Y
-            UInt16 x = BitConverter.ToUInt16(data, offset);
+            List<Piket> pikets = new List<Piket>();
+
+            // Чтение количества 8-байтовых пикетов
+            UInt16 count8BytePikets = BitConverter.ToUInt16(data, offset);
             offset += 2;
-            UInt16 y = BitConverter.ToUInt16(data, offset);
-            offset += 2;
 
-            Piket piket = new Piket(x, y);
-
-            // Читаем первую высоту отметки
-            float h1Value = BitConverter.ToSingle(data, offset);
-            offset += 4;
-            piket.h1 = new descrH { H1 = h1Value, type = "h1" };
-
-            // Проверяем наличие h2
-            if (offset < data.Length)
+            for (int i = 0; i < count8BytePikets; i++)
             {
-                //Определяем тип h2 для определ разницы высот (9 || 10)
-                if (data.Length - offset >= 1 && data.Length - offset <= 2)
-                {
-                    // Имеем 1 или 2 байта второй высоты
-                    double dz;
-                    if (data.Length - offset == 1)
-                    {
-                        // разница по высоте на 1 байт
-                        dz = data[offset];
-                        offset += 1;
-                    }
-                    else
-                    {
-                        // разница по высоте значит 2 байта
-                        dz = BitConverter.ToUInt16(data, offset);
-                        offset += 2;
-                    }
+                // Чтение координат и высоты для 8-байтовых пикетов
+                UInt16 x = BitConverter.ToUInt16(data, offset);
+                offset += 2;
+                UInt16 y = BitConverter.ToUInt16(data, offset);
+                offset += 2;
+                float pz = BitConverter.ToSingle(data, offset);
+                offset += 4;
+                byte[] rec8 = new byte[8] ;
+                Array.Copy(data, offset, rec8, 0, 8);
+                Index2D clusterIndex = new Index2D(x, y);
+                // Преобразование локальных координат в глобальные
+                Piket piket = new Piket(clusterIndex, rec8);
+             
 
-                    // Рассчитываем значение h2
-                    float h2Value = h1Value + (float)dz;
-                    piket.h2 = new descrH { H1 = h2Value, type = "h2" };
-                }
+                pikets.Add(piket);
             }
 
-            return piket;
+            // Чтение количества 9-байтовых пикетов
+            UInt16 count9BytePikets = BitConverter.ToUInt16(data, offset);
+            offset += 2;
+
+            for (int i = 0; i < count9BytePikets; i++)
+            {
+                // Чтение координат и высоты для 9-байтовых пикетов
+                UInt16 x = BitConverter.ToUInt16(data, offset);
+                offset += 2;
+                UInt16 y = BitConverter.ToUInt16(data, offset);
+                offset += 2;
+                float pz = BitConverter.ToSingle(data, offset);
+                offset += 4;
+                byte dz = data[offset++];
+                byte[] rec9 = new byte[9];
+                Array.Copy(data, offset, rec9, 0, 9);
+                Index2D clusterIndex = new Index2D(x, y);
+                // Преобразование локальных координат в глобальные
+                Piket piket = new Piket(clusterIndex, rec9);
+                piket.H1 = new descrH { H = pz, type = "h1" };
+                piket.H2 = new descrH { H = pz + dz, type = "h2" };
+
+                pikets.Add(piket);
+            }
+
+            // Чтение количества 10-байтовых пикетов
+            UInt16 count10BytePikets = BitConverter.ToUInt16(data, offset);
+            offset += 2;
+
+            for (int i = 0; i < count10BytePikets; i++)
+            {
+                // Чтение координат и высоты для 10-байтовых пикетов
+                UInt16 x = BitConverter.ToUInt16(data, offset);
+                offset += 2;
+                UInt16 y = BitConverter.ToUInt16(data, offset);
+                offset += 2;
+                float pz = BitConverter.ToSingle(data, offset);
+                offset += 4;
+                UInt16 dz = BitConverter.ToUInt16(data, offset);
+                offset += 2;
+                byte[] rec10 = new byte[10];
+                Array.Copy(data, offset, rec10, 0, 10);
+                Index2D clusterIndex = new Index2D(x, y);
+                // Преобразование локальных координат в глобальные
+                Piket pik =new Piket(clusterIndex, rec10);
+                pik.H1 = new descrH { H = pz, type = "h1" };
+                pik.H2 = new descrH { H = pz + dz, type = "h2" };
+
+                pikets.Add(pik);
+            }
+
+            return pikets;
         }
+        //public static Piket ParsePiket(byte[] data, ref int offset)
+        //{
+        //    //Читаем координаты X Y
+        //    UInt16 x = BitConverter.ToUInt16(data, offset);
+        //    offset += 2;
+        //    UInt16 y = BitConverter.ToUInt16(data, offset);
+        //    offset += 2;
+
+        //    Piket piket = new Piket(x, y);
+
+        //    // Читаем первую высоту отметки
+        //    float h1Value = BitConverter.ToSingle(data, offset);
+        //    offset += 4;
+        //    piket.h1 = new descrH { H1 = h1Value, type = "h1" };
+
+        //    // Проверяем наличие h2
+        //    if (offset < data.Length)
+        //    {
+        //        //Определяем тип h2 для определ разницы высот (9 || 10)
+        //        if (data.Length - offset >= 1 && data.Length - offset <= 2)
+        //        {
+        //            // Имеем 1 или 2 байта второй высоты
+        //            double dz;
+        //            if (data.Length - offset == 1)
+        //            {
+        //                // разница по высоте на 1 байт
+        //                dz = data[offset];
+        //                offset += 1;
+        //            }
+        //            else
+        //            {
+        //                // разница по высоте значит 2 байта
+        //                dz = BitConverter.ToUInt16(data, offset);
+        //                offset += 2;
+        //            }
+
+        //            // Рассчитываем значение h2
+        //            float h2Value = h1Value + (float)dz;
+        //            piket.h2 = new descrH { H1 = h2Value, type = "h2" };
+        //        }
+        //    }
+
+        //    return piket;
+        //}
 
         //Парсим треугольники в разных кластерах
         public static GlobalTriangleTable ParceGlTrg(byte[] data, ref int offset)
@@ -140,56 +224,7 @@ namespace SurfaceStoreageFormat
             return result;
         }
 
-        //преобразование глобальных координат в локальные
-        public static byte[] GlobalXYToLocal(Piket p)
-        {
 
-            int indexX = (int)p.X / 32;
-            int indexY = (int)p.Y / 32;
-
-            // Локал координаты внутри квадрата
-            int localXmm = (int)((p.X - (indexX * 32)) * 1000);
-            int localYmm = (int)((p.Y - (indexY * 32)) * 1000);
-
-            /// Разбиваем координаты на байты
-            byte[] localXBytes = BitConverter.GetBytes(localXmm);
-            byte[] localYBytes = BitConverter.GetBytes(localYmm);
-
-            // Возвращаем массив из 4 байтов: младшие два байта для X, старшие два байта для Y
-            return new byte[] {
-                  localXBytes[0], localXBytes[1],
-                  localYBytes[0], localYBytes[1]
-                             };
-        }
-
-        public static Piket LocalXYToGlobal(Index2D q, int[] byteRecord)
-        {
-            // Извлекаем байты для X и Y
-            byte[] localXBytes = new byte[4];
-            byte[] localYBytes = new byte[4];
-
-            // Заполняем младшие 2 байта для X и Y из byteRecord
-            localXBytes[0] = (byte)byteRecord[0];
-            localXBytes[1] = (byte)byteRecord[1];
-
-            localYBytes[0] = (byte)byteRecord[2];
-            localYBytes[1] = (byte)byteRecord[3];
-
-            // Конвертируем байты обратно в целые числа
-            int localXmm = BitConverter.ToInt32(localXBytes, 0);
-            int localYmm = BitConverter.ToInt32(localYBytes, 0);
-
-            // Расчитываем глобальные координаты в миллиметрах
-            int globalXmm = q.X * 32000 + localXmm;
-            int globalYmm = q.Y * 32000 + localYmm;
-
-            // Конвертируем в метры
-            double globalX = globalXmm / 1000.0;
-            double globalY = globalYmm / 1000.0;
-
-            // Создаем piket с глобальными координатами
-            return new Piket((UInt16)globalX, (UInt16)globalY);
-        }
 
         //Рассчитываем размер массива байта всех блоков
         public static int CalculateFileSize(Header header, TablePokr coverTable, List<Claster> clusters,
@@ -213,6 +248,7 @@ namespace SurfaceStoreageFormat
             return fileSize;
         }
 
+      
         static void Main(string[] args)
         {
             List<byte> allData = new List<byte>();
@@ -225,8 +261,8 @@ namespace SurfaceStoreageFormat
             //Покрытия
             List<Pokr> tablePork = new List<Pokr>
         {
-            new Pokr(new Color(204, 204, 255,255), "Асфальт"),
-            new Pokr(new Color(204, 204, 255,255), "Газон")
+            new Pokr(new Color(204, 204, 255, 255), "Асфальт"),
+            new Pokr(new Color(204, 204, 255, 255), "Газон")
         };
             // Массив количества квадратов
             byte[] squareCounts = { 5 };
@@ -235,6 +271,7 @@ namespace SurfaceStoreageFormat
             byte[] coverTableBytes = coverTable.Record();
 
             allData.AddRange(coverTableBytes);
+
             //кластер отметок
             List<Claster> clusters = new List<Claster>();
             //8байт
@@ -244,25 +281,26 @@ namespace SurfaceStoreageFormat
             // Добавляем отметки в первую таблицу (Piks1)
             cl1.Piks1.AddRange(new List<Piket>
             {
-                new Piket((UInt16)100.67, (UInt16)200.789, 101.78f),
-                new Piket((UInt16)150.123, (UInt16)250.654, 95.74f)
+                new Piket(100.67, 200.789, new descrH(101.78f), null),
+                new Piket(150.123, 250.654, new descrH(95.74f), null)
              });
             // Добавляем кластер в список кластеров
             clusters.Add(cl1);
+
             UInt16 countPiks1 = (UInt16)cl1.Piks1.Count;
             allData.AddRange(BitConverter.GetBytes(countPiks1));
             foreach (var p in cl1.Piks1)
                 allData.AddRange(p.Record());
 
             //9 байт
-            cl1.Piks2.Add( new Piket((UInt16)101.8, (UInt16)122.3, 101.25f, 101.40f));
+            cl1.Piks2.Add( new Piket(101.8,122.3, new descrH(101.25f), new descrH(101.40f)));
             UInt16 countPiks2 = (UInt16)cl1.Piks2.Count;
             allData.AddRange(BitConverter.GetBytes(countPiks2));
             foreach (var p in cl1.Piks2)
                 allData.AddRange(p.Record());
 
             //10 байт
-            cl1.Piks3.Add(new Piket((UInt16)99.4, (UInt16)81.2, 77.5f, 121.0f));
+            cl1.Piks3.Add(new Piket(99.4, 81.2, new descrH(77.5f), new descrH(121.0f)));
             UInt16 countPiks3 = (UInt16)cl1.Piks2.Count;
             allData.AddRange(BitConverter.GetBytes(countPiks3));
             foreach (var p in cl1.Piks3)
@@ -301,25 +339,11 @@ namespace SurfaceStoreageFormat
             int fileSize = CalculateFileSize(header, coverTable, clusters, clr, glTrg); //размер массива байт
             byte[] fileData = new byte[fileSize];
            // byte [] fileRead = ReadFile(fileName);
-          fileData=  ReadFile(fileName);
-          
+           fileData=  ReadFile(fileName);
+            // Вызов метода для чтения и парсинга данных
+            SurfaceData parsedData =SurfaceData.ReadFileData(fileData);
 
-            static void ReadFileData(byte[] fileData)
-            {
-                
-                // Парсинг заголовка
-                int offset = 0;
-                Header header = ParceHeader(fileData, ref offset);
-                
-                // Парсинг таблицы покрытий
-                TablePokr coverTable = ParcePokr(fileData, ref offset);
-                //Парсинг отметок и треугольников
-                Piket pk = ParsePiket(fileData, ref offset);
-                //Парсинг треугольников в разных кластерах
-                GlobalTriangleTable glTr = ParceGlTrg(fileData, ref offset);
-
-                
-            }
+            //Console.WriteLine(parsedData.Header.Author);
 
 
         }

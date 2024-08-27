@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace SurfaceStoreageFormat
 {
-    class AllClass
+    public class AllClass
     {
         //Блок 1 Заголовок
         public class Header
@@ -70,7 +70,7 @@ namespace SurfaceStoreageFormat
             }
         }
 
-        //Треугольник кластера
+        //Треугольники кластера
         public class TreangleCluster
         {
             public byte IndexTrCl { get; set; } //индекс записи в таблице покрытий
@@ -272,11 +272,12 @@ namespace SurfaceStoreageFormat
         // Кластер  хранения данных
         public class Claster
         {
+            public UInt32 CountCluster { get; set; }
             public Index2D pos;
             public List<Piket> Piks1;  // Таблица отметок одновысотных
             public List<Piket> Piks2;  // Таблица отметок двухвысотных однобайтовых перепадов
             public List<Piket> Piks3;  // Таблица отметок двухвысотных двухбатовых перепадов
-         //   public List<Treangle> Trgs;  // Таблица треугольников локальных
+          //  public List<Treangle> Trgs;  // Таблица треугольников локальных
 
             public Claster()
             {
@@ -284,6 +285,7 @@ namespace SurfaceStoreageFormat
                 Piks2 = new List<Piket>();
                 Piks3 = new List<Piket>();
             }
+            // получение блок байт кластера
             public byte[] Record()
             {
                 List<byte> data = new List<byte>();
@@ -313,25 +315,24 @@ namespace SurfaceStoreageFormat
             public List<Pokr> TablePork;     // Таблица покрытий 
             public Surface(string name, byte countPokr, List<Pokr> tablePork)
             {
-                //Autor = autor;
                 CountPokr = countPokr;
                 NameSurface = name;
                 TablePork = tablePork;
 
             }
         }
-            // Метод для расчета размера байтового представления таблицы покрытий
-            public static int GetByteSize( TablePokr table)
-            {
-                int size = 1; // для хранения количества покрытий
-                foreach (var cover in table.CoverList)
-                {
-                    size += 4; // для хранения цвета (4 байта)
-                    size += cover.NamePokr.Length + 1; // для хранения имени покрытия и его длины
-                }
-                size += table.SquareCounts.Length; // для хранения массива количества квадратов
-                return size;
-            }
+            //// Метод для расчета размера байтового представления таблицы покрытий
+            //public static int GetByteSize( TablePokr table)
+            //{
+            //    int size = 1; // для хранения количества покрытий
+            //    foreach (var cover in table.CoverList)
+            //    {
+            //        size += 4; // для хранения цвета (4 байта)
+            //        size += cover.NamePokr.Length + 1; // для хранения имени покрытия и его длины
+            //    }
+            //    size += table.SquareCounts.Length; // для хранения массива количества квадратов
+            //    return size;
+            //}
         
         //сохраняем блоки данных в файле
         public static bool SaveToFile(string fn,byte[] data )
@@ -367,59 +368,106 @@ namespace SurfaceStoreageFormat
 
         public class descrH
         {
-            public float H1; //высота отметки в метрах
+            public float H; //высота отметки в метрах
             public string type; //тип отметки
+            public descrH(float h) 
+            {
+                H = h;
+            }
+            public descrH() { }
         }
 
         public class Piket
         {
-            public UInt16 X { get; set; }
-            public UInt16 Y { get; set; }
+            public double X { get; set; }
+            public double Y { get; set; }
 
-            public descrH h1, h2;
+            public descrH H1, H2;
 
-            public Piket(UInt16 x, UInt16 y)
-            {
+            //public Piket(double x, double y)
+            //{
+            //    X = x;
+            //    Y = y;
+            //}
+            //public Piket(double x, double y, float h1Value)
+            //{
+            //    X = x;
+            //    Y = y;
+            //    h1 = new descrH { H1 = h1Value, type = "h1" };
+            //}
+            public Piket(double x, double y, descrH h1, descrH h2 = null)
+            { 
                 X = x;
                 Y = y;
+                H1 = h1; //  new descrH { H1 = h1Value, type = "" };
+                H2 = h2; // new descrH { H1 = h2Value, type = "" };
             }
-            public Piket(UInt16 x, UInt16 y, float h1Value)
-            {
-                X = x;
-                Y = y;
-                h1 = new descrH { H1 = h1Value, type = "h1" };
-            }
-            public Piket(UInt16 x, UInt16 y, float h1Value, float h2Value)
-            {
-                X = x;
-                Y = y;
-                h1 = new descrH { H1 = h1Value, type = "h1" };
-                h2 = new descrH { H1 = h2Value, type = "h2" };
-            }
+
             public byte[] Record()
             {
                 ////Преобразуем глобальные координаты (в мм.) плана в локальные с условием что размеры квадрата 32х32
                 List<byte> data = new List<byte>();
              
-                byte[] localCoords = Program.GlobalXYToLocal(this);
+                byte[] localCoords = GlobalXYToLocal();
                 data.AddRange(BitConverter.GetBytes(BitConverter.ToUInt16(localCoords, 0))); // X
                 data.AddRange(BitConverter.GetBytes(BitConverter.ToUInt16(localCoords, 2))); // Y
-                data.AddRange(BitConverter.GetBytes(h1.H1));
+                data.AddRange(BitConverter.GetBytes(H2 == null ? H1.H: Math.Min(H1.H, H2.H)));
 
                 // Анализ перепада между h1 и h2 (если h2 существует)
-                if (h1 != null && h2 != null)
+                if (H1 != null && H2 != null)
                 {
-                    double dz = Math.Abs(h2.H1 - h1.H1); // Вычисляем перепад
+                    int dz =(int) Math.Abs(H2.H - H1.H)*1000; // Вычисляем перепад
                     // Проверяем, если перепад может быть выражен в одном или двух байтах
-                    if (dz <= 0.255)
+                    if (dz <= 255)
                         data.Add((byte)dz); // Добавляем 1 байт
-                    else if (dz <= 65.535)
+                    else if (dz <= 65535)
                         data.AddRange(BitConverter.GetBytes((UInt16)dz)); // Добавляем 2 байта
                 }
                 // Возвращаем сформированную запись в виде массива байт
                 return data.ToArray();
             }
 
+            //преобразование глобальных координат в локальные
+            public byte[] GlobalXYToLocal()
+            {
+
+                int indexX = (int)X / 32;
+                int indexY = (int)Y / 32;
+
+                // Локал координаты внутри квадрата
+                int localXmm = (int)((X - (indexX * 32)) * 1000);
+                int localYmm = (int)((Y - (indexY * 32)) * 1000);
+
+                /// Разбиваем координаты на байты
+                byte[] localXBytes = BitConverter.GetBytes(localXmm);
+                byte[] localYBytes = BitConverter.GetBytes(localYmm);
+
+                // Возвращаем массив из 4 байтов: младшие два байта для X, старшие два байта для Y
+                return new byte[] {
+                  localXBytes[0], localXBytes[1],
+                  localYBytes[0], localYBytes[1]
+                             };
+            }
+
+            public Piket(Index2D q, byte[] byteRecord)
+            {
+                int Xmm = BitConverter.ToUInt16(byteRecord, 0);
+                int Ymm = BitConverter.ToUInt16(byteRecord, 2);
+                float Z = BitConverter.ToSingle(byteRecord, 4);
+                // Расчитываем глобальные координаты в метрах
+                X = q.X * 32 + Xmm / 1000.0;
+                Y = q.Y * 32 + Xmm / 1000.0;
+                H1 = new descrH(Z);
+                if (byteRecord.Length == 9) 
+                {
+                    byte dZ = byteRecord[8];
+                }
+                if (byteRecord.Length == 10)
+                {
+                    UInt16 dZ = BitConverter.ToUInt16(byteRecord, 8);
+                }
+
+            }
         }
         public struct Index2D
         {
