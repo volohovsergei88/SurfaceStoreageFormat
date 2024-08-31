@@ -12,6 +12,7 @@ namespace SurfaceStoreageFormat
         public Header header { get; set; }
         public TablePokr Covers { get; set; }
         public List<Piket> Pikets { get; set; }
+        public TreangleCluster Clr { get; set; }
         public GlobalTriangleTable GlobalTriangles { get; set; }
 
 
@@ -26,6 +27,9 @@ namespace SurfaceStoreageFormat
             TablePokr coverTable = Program.ParcePokr(fileData, ref offset);
             //Парсинг отметок и треугольников
            List<Piket> pk = Program.ParsePikets(fileData, ref offset);
+            //Парсинг треугольников внутри кластера
+            TreangleCluster clr = Program.TrgClust(fileData, ref offset);
+
             //Парсинг треугольников в разных кластерах
             GlobalTriangleTable glTr = Program.ParceGlTrg(fileData, ref offset);
 
@@ -34,6 +38,7 @@ namespace SurfaceStoreageFormat
                 header = header,
                 Covers = coverTable,
                 Pikets = pk,
+                Clr=clr,
                 GlobalTriangles = glTr
             };
             return parsedData;

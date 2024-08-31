@@ -289,6 +289,11 @@ namespace SurfaceStoreageFormat
             public byte[] Record()
             {
                 List<byte> data = new List<byte>();
+                data.AddRange(BitConverter.GetBytes(CountCluster));
+                // Добавляем координаты кластера (Q.X и Q.Y) в заголовок
+                data.AddRange(BitConverter.GetBytes(pos.X)); // 4 байта для X
+                data.AddRange(BitConverter.GetBytes(pos.Y)); // 4 байта для Y
+
                 // Записываем все отметки Piks1
                 data.AddRange(BitConverter.GetBytes((UInt16)Piks1.Count)); // Добавляем 2 байта на кол-во
                 foreach (var piket in Piks1)
@@ -381,6 +386,7 @@ namespace SurfaceStoreageFormat
         {
             public double X { get; set; }
             public double Y { get; set; }
+            public Index2D ClusterIndex { get; set; }  // Индекс кластера
 
             public descrH H1, H2;
 
@@ -401,12 +407,20 @@ namespace SurfaceStoreageFormat
                 Y = y;
                 H1 = h1; //  new descrH { H1 = h1Value, type = "" };
                 H2 = h2; // new descrH { H1 = h2Value, type = "" };
+
+                    // Вычисляем индекс кластера при создании пикета
+                ClusterIndex = new Index2D((int)X / 32, (int)Y / 32);
             }
 
             public byte[] Record()
             {
                 ////Преобразуем глобальные координаты (в мм.) плана в локальные с условием что размеры квадрата 32х32
                 List<byte> data = new List<byte>();
+
+
+                //сохраняем координаты кластера
+                data.AddRange(BitConverter.GetBytes(ClusterIndex.X));
+                data.AddRange(BitConverter.GetBytes(ClusterIndex.Y));
              
                 byte[] localCoords = GlobalXYToLocal();
                 data.AddRange(BitConverter.GetBytes(BitConverter.ToUInt16(localCoords, 0))); // X
@@ -416,7 +430,7 @@ namespace SurfaceStoreageFormat
                 // Анализ перепада между h1 и h2 (если h2 существует)
                 if (H1 != null && H2 != null)
                 {
-                    int dz =(int) Math.Abs(H2.H - H1.H)*1000; // Вычисляем перепад
+                    int dz =(int) Math.Abs((H2.H - H1.H)*1000); // Вычисляем перепад
                     // Проверяем, если перепад может быть выражен в одном или двух байтах
                     if (dz <= 255)
                         data.Add((byte)dz); // Добавляем 1 байт
@@ -448,7 +462,7 @@ namespace SurfaceStoreageFormat
                   localYBytes[0], localYBytes[1]
                              };
             }
-
+            //координаты локальные в глобальные
             public Piket(Index2D q, byte[] byteRecord)
             {
                 int Xmm = BitConverter.ToUInt16(byteRecord, 0);
@@ -456,7 +470,7 @@ namespace SurfaceStoreageFormat
                 float Z = BitConverter.ToSingle(byteRecord, 4);
                 // Расчитываем глобальные координаты в метрах
                 X = q.X * 32 + Xmm / 1000.0;
-                Y = q.Y * 32 + Xmm / 1000.0;
+                Y = q.Y * 32 + Ymm / 1000.0;
                 H1 = new descrH(Z);
                 if (byteRecord.Length == 9) 
                 {
